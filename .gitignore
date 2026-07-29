@@ -1,0 +1,23 @@
+# Local secrets and machine-specific config
+esp32p4_car_controller/config/config.local.ini
+esp32p4_car_controller/config/*.secret.ini
+esp32p4_car_controller/config/nvs_secrets.csv
+esp32p4_car_controller/config/nvs_secrets.local.csv
+esp32p4_car_controller/config/nvs_secrets.local.bin
+esp32p4_car_controller/managed_components/
+
+# ESP-IDF build output
+esp32p4_car_controller/build/
+esp32p4_car_controller/sdkconfig
+esp32p4_car_controller/sdkconfig.old
+
+# STM32/Keil build output
+stm32_motion_controller/.metadata/
+stm32_motion_controller/build_gcc/
+stm32_motion_controller/MDK-ARM/STM32_Car/
+stm32_motion_controller/MDK-ARM/*.uvguix.*
+stm32_motion_controller/MDK-ARM/*.lst
+
+# Python cache
+__pycache__/
+*.pyc

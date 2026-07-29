@@ -1,0 +1,137 @@
+AI视觉小车项目技术说明
+
+一、总体架构
+
+本项目是双MCU架构：
+
+1. ESP32-P4作为上位AI控制器，负责联网、网页调试、OV5647摄像头、ES8311麦克风和喇叭、Qwen Realtime连接、AI工具调用和高层行为状态机。
+2. STM32作为底盘实时控制器，负责电机PWM、TB6612方向控制、舵机云台、WS2812灯效、超声波、DHT11、GPS和本地安全急停。
+3. ESP32-P4和STM32通过UART二进制协议通信，帧格式为 AA 55 LEN CMD DATA CHECKSUM。ESP32只发送高层安全命令，STM32执行真实硬件动作并持续上报状态。
+
+二、已经实现的功能
+
+1. 联网
+   使用微雪ESP32-P4-WIFI6-KIT板载ESP32-C6作为Hosted Wi-Fi模块。
+   ESP32-P4通过esp_hosted和esp_wifi_remote驱动C6联网。
+   Wi-Fi、Qwen API Key和模型ID存放在NVS，不写死在源码。
+
+2. Qwen Realtime语音AI
+   使用WebSocket连接DashScope Qwen Realtime。
+   当前模型ID为 qwen3.5-omni-flash-realtime-2026-03-15。
+   支持文字和语音输入，Qwen可以通过function calling调用小车工具。
+
+3. 音频输入输出
+   使用ES8311音频Codec和I2S。
+   麦克风采集PCM音频上传给Qwen。
+   Qwen返回的PCM音频通过喇叭播放。
+   播放端使用双层缓冲：PSRAM大spool缓冲负责接收AI下发音频，FreeRTOS ring buffer负责给I2S播放任务做实时缓冲。
+
+4. 摄像头和网页画面
+   使用OV5647 MIPI CSI摄像头。
+   网页通过HTTP MJPEG流查看实时画面。
+   当前摄像头驱动实际输出RGBP 800x640，ESP32-P4本地JPEG编码后再用于网页预览和AI图片上传。
+
+5. 网页调试
+   ESP32-P4内置HTTP调试页，可以测试电机、云台、灯效、摄像头预览、截图、音频、Qwen和智能行为。
+
+6. AI工具调用
+   Qwen只能调用高层工具：robot_get_status、robot_stop、robot_move、robot_gimbal_set、robot_gimbal_action、robot_led_effect、robot_behavior、robot_capture_image。
+   AI不能直接控制PWM或GPIO，所有移动命令都会经过ESP32安全层和STM32安全层。
+
+三、本轮新增的智能行为
+
+1. 跳舞 dance
+   触发词：跳舞、表演一下、dance。
+   动作：cute灯效，云台happy_wiggle，原地左旋、原地右旋、前后小步，最后点头回中。
+
+2. 巡逻 patrol
+   触发词：开始巡逻、巡逻、patrol。
+   动作：patrol灯效，云台回中，循环短脉冲前进。
+   巡逻会一直持续，直到用户说停止、急停、睡觉、切换行为，或者安全层阻止。
+
+3. 避障 avoid_obstacle
+   预避障阈值约25cm，STM32硬急停阈值约15cm。
+   遇到障碍后停车、后退、云台左中右扫视，并上传图片给AI判断。
+   如果AI不可用，使用保守fallback：右转后继续巡逻；连续失败后停车并显示error灯效。
+
+4. 环顾周围 look_around
+   云台左、中、右拍照上传给AI，AI用中文描述周围环境，电机保持停止。
+
+5. 找人 find_user
+   电机停止，云台慢扫，摄像头最多1FPS上传给AI，让AI判断人在哪个方向。
+
+6. 跟随 follow_user
+   先找人，再低速小步跟随；距离过近时不前进，防止撞到人。
+
+7. 睡觉和唤醒
+   睡觉会停车、低头、灯效变暗。
+   唤醒会抬头回中并恢复监听。
+
+四、关键难点和解决方法
+
+1. AI说“前进”但车只动一下
+   原因：ESP32默认动作只有600到650ms，而STM32电机加速斜坡是500ms，电机刚爬到目标速度就停止。
+   解决：STM32加速斜坡改为180ms，停止斜坡约200ms；非停止动作最小时长提高到1200ms，AI和网页默认动作改为1800ms。
+
+2. AI有时只回复文字，不调用工具
+   原因：只依赖模型function calling时，模型可能把动作请求理解成聊天。
+   解决：一方面强化Qwen系统提示，明确动作请求必须调用工具；另一方面在ESP32本地增加中文关键词解析，例如“前进”“停止”“跳舞”“巡逻”，简单动作直接调用安全工具。
+
+3. 中文工具参数乱码
+   原因：C源码里曾经出现中文编码损坏，导致中文字符串匹配不稳定。
+   解决：工具参数统一使用英文枚举，例如 direction=forward、behavior=patrol；中文只作为用户触发词，映射后转成英文工具参数。
+
+4. AI语音播放卡顿和跳读
+   原因：Qwen音频是网络流式下发，I2S播放是稳定实时消耗，两者速度不一致会造成欠载或溢出。
+   解决：使用PSRAM大spool缓冲接收完整音频，再用FreeRTOS ring buffer给I2S任务播放。播放前预缓存一段音频，播放后关闭功放并延迟恢复麦克风，避免回声再次触发AI。
+
+5. 摄像头不直接输出JPEG
+   原因：OV5647当前驱动不能直接设置成320x240 JPEG或640x480 JPEG，实际输出RGBP 800x640。
+   解决：使用ESP32-P4本地JPEG编码器，把摄像头帧转成JPEG，再提供网页MJPEG和AI单帧上传。
+
+6. AI视觉和音频抢资源
+   原因：摄像头、Wi-Fi上传、Qwen音频播放都会占用CPU、PSRAM和网络。
+   解决：网页预览默认低帧率，AI视觉最多1FPS；Qwen正在播报时暂停图片上传或降低摄像头流压力，保证语音优先。
+
+7. Qwen图片上传顺序错误
+   原因：调试capture时，摄像头取帧和JPEG上传都成功，但Qwen返回 append image before append audio。
+   解决：在上传JPEG前，ESP32先追加20ms静音PCM音频，再按原来的input_image_buffer.append格式追加图片。这样不改变WebSocket鉴权、模型ID和图片事件格式，只满足Qwen对输入顺序的要求。
+
+8. 巡逻不能一次发长时间电机命令
+   原因：长时间前进不安全，AI或通信异常时不好控制。
+   解决：巡逻采用短脉冲循环前进，每轮约1800ms；每一轮重新读取距离和状态，遇到障碍立刻切换到避障。
+
+五、测试方法
+
+串口监视器可输入：
+
+status
+behavior dance
+behavior patrol
+behavior stop_patrol
+behavior look_around
+behavior find_user
+behavior follow_user
+capture
+qwen 跳舞
+qwen 开始巡逻
+qwen 停止
+
+网页调试：
+
+浏览器打开ESP32日志里打印的IP地址，例如：
+http://192.168.x.x/
+
+六、当前闭环验证结果
+
+1. ESP32工程编译通过。
+2. STM32工程编译通过。
+3. ESP32固件已烧录到COM14。
+4. NVS密钥分区已重新烧录，运行时Qwen模型URI已经变为 qwen3.5-omni-flash-realtime-2026-03-15。
+5. 旧模型ID的独立残留已全局搜索确认不存在。
+6. 串口测试显示STM32在线。
+7. behavior dance可以进入high=dance，电机和云台状态发生变化。
+8. behavior patrol在前方约21cm障碍距离下会进入avoid_obstacle。
+9. behavior stop_patrol和stop可以打断当前行为。
+10. qwen 跳舞会被ESP32本地中文解析成robot_behavior dance，并返回ESP_OK。
+11. capture可以拍摄OV5647画面并上传给Qwen，日志显示 image upload ret=ESP_OK，图片上传顺序错误已修复。

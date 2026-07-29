@@ -1,0 +1,76 @@
+menu "AI Vision Car"
+
+choice ROBOT_NETWORK_BACKEND
+    prompt "Network backend"
+    default ROBOT_NETWORK_WAVESHARE_P4_WIFI6_KIT
+    help
+        Select the network hardware backend used by ESP32-P4.
+
+config ROBOT_NETWORK_AUTO
+    bool "Auto / native Wi-Fi when available"
+
+config ROBOT_NETWORK_WAVESHARE_P4_WIFI6_KIT
+    bool "Waveshare ESP32-P4-WIFI6-KIT external ESP32-C6"
+    help
+        Use this when the board is Waveshare ESP32-P4-WIFI6-KIT.
+        The schematic shows an external ESP32-C6 Wi-Fi 6 module. ESP32-P4
+        still needs the matching hosted/remote Wi-Fi driver before the
+        network can become online.
+
+config ROBOT_NETWORK_WAVESHARE_P4_ETH
+    bool "Waveshare ESP32-P4-ETH RMII IP101"
+    help
+        Use the Waveshare ESP32-P4-ETH RMII Ethernet wiring:
+        MDC GPIO31, MDIO GPIO52, PHY power GPIO51, RMII clock GPIO50,
+        IP101 PHY address 1.
+
+endchoice
+
+config ROBOT_WIFI6_KIT_ENABLE_HOSTED
+    bool "Enable ESP32-C6 hosted Wi-Fi driver"
+    default y
+    depends on ROBOT_NETWORK_WAVESHARE_P4_WIFI6_KIT
+    help
+        Enable the hosted/remote Wi-Fi path used by ESP32-P4-WIFI6-KIT.
+        The ESP32-C6 side must run the matching hosted slave firmware.
+
+config ROBOT_CAMERA_V4L2_CAPTURE
+    bool "Enable OV5647 V4L2 JPEG capture backend"
+    default y
+    help
+        Enable the ESP32-P4 esp_video based OV5647 MIPI CSI capture backend.
+
+config ROBOT_CAMERA_V4L2_DEVICE
+    string "V4L2 camera device path"
+    default "/dev/video0"
+    depends on ROBOT_CAMERA_V4L2_CAPTURE
+
+config ROBOT_CAMERA_JPEG_WIDTH
+    int "JPEG capture width"
+    default 320
+    depends on ROBOT_CAMERA_V4L2_CAPTURE
+
+config ROBOT_CAMERA_JPEG_HEIGHT
+    int "JPEG capture height"
+    default 240
+    depends on ROBOT_CAMERA_V4L2_CAPTURE
+
+config ROBOT_CAMERA_STREAM_FPS
+    int "MJPEG web preview FPS"
+    default 6
+    range 1 10
+    depends on ROBOT_CAMERA_V4L2_CAPTURE
+
+config ROBOT_CAMERA_STREAM_SLOW_FPS
+    int "MJPEG web preview FPS while AI is speaking"
+    default 2
+    range 1 3
+    depends on ROBOT_CAMERA_V4L2_CAPTURE
+
+config ROBOT_CAMERA_JPEG_QUALITY
+    int "Camera JPEG quality"
+    default 50
+    range 20 90
+    depends on ROBOT_CAMERA_V4L2_CAPTURE
+
+endmenu

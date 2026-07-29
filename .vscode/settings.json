@@ -1,0 +1,15 @@
+{
+  "idf.currentSetup": "E:\\ESP5.5.4\\v5.5.4\\esp-idf",
+  "idf.flashType": "JTAG",
+  "idf.portWin": "COM14",
+  "idf.customExtraVars": {},
+  "clangd.path": "e:\\Microsoft_VS_Code\\ESP_IDF\\Tools\\tools\\esp-clang\\15.0.0-23786128ae\\esp-clang\\bin\\clangd.exe",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=e:\\CodexProject\\Wayne_Graduation\\DualMCU_AI_Vision_Car\\build"
+  ],
+  "idf.openOcdConfigs": [
+    "board/esp32p4-ftdi.cfg"
+  ]
+}
