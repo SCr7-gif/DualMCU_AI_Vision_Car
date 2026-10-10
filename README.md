@@ -7,8 +7,6 @@
 
 基于 **ESP32-P4 + STM32F103C8T6** 的双 MCU 小车工程，结合语音交互、视觉理解、实时运动控制与网页调试。ESP32-P4 处理网络、音视频与 AI 工具调用，STM32 负责电机、云台、传感器和本地安全保护。
 
-本仓库 Fork 自 [waynewong001/DualMCU_AI_Vision_Car](https://github.com/waynewong001/DualMCU_AI_Vision_Car)，保留原始代码和提交历史。本分支整理了中文项目导航与技术说明；功能说明依据仓库实现，不代表已在当前维护者的硬件上完成验证。
-
 ## 功能概览
 
 | 模块 | 功能与实现 |
@@ -104,7 +102,3 @@ cd stm32_motion_controller
 5. 测试断网、串口断连、无效指令、近距离障碍等异常场景。
 
 详细测试步骤见 [测试计划](docs/test_plan.md) 和 `docs/` 下各模块联调文档。当前介绍页未新增实车测量结果。
-
-## 来源与许可
-
-原始项目：[waynewong001/DualMCU_AI_Vision_Car](https://github.com/waynewong001/DualMCU_AI_Vision_Car)。本仓库保留 Fork 关系及原作者提交记录。上游当前未提供根目录项目许可证，本分支不另行授予原始项目代码许可；STM32 HAL、CMSIS 等第三方代码保留各自许可证。
